@@ -1,0 +1,60 @@
+{% comment %}
+  Kaamos: trust strip. Short reasons to buy, fully editable in the theme editor.
+{% endcomment %}
+<div class="kaamos-trust" style="--kt-bg: {{ section.settings.background }}; --kt-fg: {{ section.settings.text_color }};">
+  <div class="kaamos-trust__inner">
+    {%- for block in section.blocks -%}
+      <div class="kaamos-trust__item" {{ block.shopify_attributes }}>
+        <p class="kaamos-trust__title">{{ block.settings.title | escape }}</p>
+        {%- if block.settings.text != blank -%}
+          <p class="kaamos-trust__text">{{ block.settings.text | escape }}</p>
+        {%- endif -%}
+      </div>
+    {%- endfor -%}
+  </div>
+</div>
+
+{% stylesheet %}
+  .kaamos-trust { background: var(--kt-bg); color: var(--kt-fg); padding: 2rem 1rem; }
+  .kaamos-trust__inner {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .kaamos-trust__title { font-weight: 600; margin: 0 0 0.25rem; }
+  .kaamos-trust__text { margin: 0; opacity: 0.8; font-size: 0.9em; }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "Kaamos: luottamuspalkki",
+  "settings": [
+    { "type": "color", "id": "background", "label": "Taustaväri", "default": "#16233F" },
+    { "type": "color", "id": "text_color", "label": "Tekstin väri", "default": "#FAFAF7" }
+  ],
+  "blocks": [
+    {
+      "type": "item",
+      "name": "Kohta",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Otsikko", "default": "Suunniteltu Suomessa" },
+        { "type": "text", "id": "text", "label": "Teksti" }
+      ]
+    }
+  ],
+  "max_blocks": 4,
+  "presets": [
+    {
+      "name": "Kaamos: luottamuspalkki",
+      "blocks": [
+        { "type": "item", "settings": { "title": "Suunniteltu Suomessa", "text": "Pohjoisen talven tarpeisiin" } },
+        { "type": "item", "settings": { "title": "Nopea toimitus", "text": "1–2 arkipäivää" } },
+        { "type": "item", "settings": { "title": "Selkeät ainesosat", "text": "Kerromme tarkalleen, mitä kapseli sisältää" } },
+      ]
+    }
+  ]
+}
+{% endschema %}

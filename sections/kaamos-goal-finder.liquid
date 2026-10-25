@@ -1,0 +1,359 @@
+{% comment %}
+  Kaamos: goal-based product finder.
+  Shoppers pick one or more goals; products are ranked by how many of the chosen goals
+  their "Tavoitteet" metafield (list of single line text) matches.
+  Each goal option is a block, so the merchant can add, rename and reorder goals in the theme editor.
+{% endcomment %}
+
+{%- liquid
+  assign ns = section.settings.metafield_namespace | default: 'custom'
+  assign key = section.settings.metafield_key | default: 'tavoitteet'
+  assign source = section.settings.collection
+-%}
+
+<kaamos-goal-finder
+  class="kgf"
+  style="--kgf-accent: {{ section.settings.accent }};"
+  data-max-results="{{ section.settings.max_results }}"
+  data-match-prefix="{{ section.settings.match_prefix | escape }}"
+>
+  <div class="kgf__inner">
+    {%- comment -%} Step 1: choose goals {%- endcomment -%}
+    <div class="kgf__step" data-step="choose">
+      {%- if section.settings.heading != blank -%}
+        <h2 class="kgf__heading">{{ section.settings.heading | escape }}</h2>
+      {%- endif -%}
+      {%- if section.settings.subheading != blank -%}
+        <p class="kgf__sub">{{ section.settings.subheading | escape }}</p>
+      {%- endif -%}
+
+      <div class="kgf__goals" role="group" aria-label="{{ section.settings.heading | escape }}">
+        {%- for block in section.blocks -%}
+          <button
+            type="button"
+            class="kgf__goal"
+            aria-pressed="false"
+            data-goal="{{ block.settings.value | escape }}"
+            {{ block.shopify_attributes }}
+          >
+            <span class="kgf__goal-label">{{ block.settings.label | escape }}</span>
+            {%- if block.settings.description != blank -%}
+              <span class="kgf__goal-desc">{{ block.settings.description | escape }}</span>
+            {%- endif -%}
+          </button>
+        {%- endfor -%}
+      </div>
+
+      <button type="button" class="kgf__cta" data-action="show" disabled>
+        {{ section.settings.button_label | escape }}
+      </button>
+
+      {%- if source == blank and request.design_mode -%}
+        <p class="kgf__note">Valitse osion asetuksista kokoelma, josta suositukset haetaan.</p>
+      {%- endif -%}
+    </div>
+
+    {%- comment -%} Step 2: results (cards are rendered server-side, then filtered and sorted in JS) {%- endcomment -%}
+    <div class="kgf__step" data-step="results" hidden>
+      <h2 class="kgf__heading" tabindex="-1">{{ section.settings.results_heading | escape }}</h2>
+      <p class="kgf__empty" hidden>{{ section.settings.empty_text | escape }}</p>
+
+      <ul class="kgf__results" aria-live="polite">
+        {%- if source != blank -%}
+          {%- for product in source.products limit: 50 -%}
+            {%- assign goals = product.metafields[ns][key].value -%}
+            {%- if goals == blank -%}
+              {%- continue -%}
+            {%- endif -%}
+            {%- assign image_alt = product.featured_image.alt | default: product.title -%}
+
+            <li class="kgf__card" data-goals="{{ goals | join: '|' | escape }}" data-index="{{ forloop.index0 }}" hidden>
+              <a href="{{ product.url }}" class="kgf__card-link">
+                {%- if product.featured_image -%}
+                  {{
+                    product.featured_image
+                    | image_url: width: 600
+                    | image_tag:
+                      loading: 'lazy',
+                      alt: image_alt,
+                      class: 'kgf__img',
+                      widths: '300, 450, 600',
+                      sizes: '(min-width: 750px) 25vw, 50vw'
+                  }}
+                {%- endif -%}
+                <span class="kgf__badge" hidden>{{ section.settings.best_match_label | escape }}</span>
+                <span class="kgf__title">{{ product.title | escape }}</span>
+                <span class="kgf__price">
+                  {%- if product.compare_at_price > product.price -%}
+                    <s>{{ product.compare_at_price | money }}</s>
+                  {%- endif %}
+                  {{ product.price | money }}
+                </span>
+              </a>
+              <p class="kgf__matches" data-matches></p>
+
+              {%- form 'product', product, class: 'kgf__form' -%}
+                <input type="hidden" name="id" value="{{ product.selected_or_first_available_variant.id }}">
+                <button type="submit" class="kgf__add" {% unless product.available %}disabled{% endunless %}>
+                  {%- if product.available -%}
+                    {{ section.settings.add_label | escape }}
+                  {%- else -%}
+                    {{ section.settings.sold_out_label | escape }}
+                  {%- endif -%}
+                </button>
+              {%- endform -%}
+            </li>
+          {%- endfor -%}
+        {%- endif -%}
+      </ul>
+
+      <button type="button" class="kgf__restart" data-action="restart">
+        {{ section.settings.restart_label | escape }}
+      </button>
+    </div>
+  </div>
+</kaamos-goal-finder>
+
+{% stylesheet %}
+  .kgf { padding: 3rem 1rem; }
+  .kgf [hidden] { display: none !important; }
+  .kgf__inner { max-width: 1100px; margin: 0 auto; text-align: center; }
+  .kgf__heading { margin: 0 0 0.5rem; }
+  .kgf__heading:focus { outline: none; }
+  .kgf__sub { margin: 0 auto 2rem; max-width: 40rem; opacity: 0.8; }
+
+  .kgf__goals {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+  }
+  .kgf__goal {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 1rem;
+    border: 1.5px solid var(--kgf-accent);
+    border-radius: 12px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+  }
+  .kgf__goal:hover { background: color-mix(in srgb, var(--kgf-accent) 8%, transparent); }
+  .kgf__goal[aria-pressed='true'] { background: var(--kgf-accent); color: #fafaf7; }
+  .kgf__goal:focus-visible,
+  .kgf__cta:focus-visible,
+  .kgf__restart:focus-visible,
+  .kgf__add:focus-visible { outline: 2px solid var(--kgf-accent); outline-offset: 3px; }
+  .kgf__goal-label { font-weight: 600; }
+  .kgf__goal-desc { font-size: 0.85em; opacity: 0.8; }
+
+  .kgf__cta,
+  .kgf__add {
+    padding: 0.85rem 1.75rem;
+    border: 0;
+    border-radius: 999px;
+    background: var(--kgf-accent);
+    color: #fafaf7;
+    font: inherit;
+    cursor: pointer;
+  }
+  .kgf__cta:disabled,
+  .kgf__add:disabled { opacity: 0.4; cursor: not-allowed; }
+  .kgf__note { margin-top: 1rem; font-size: 0.9em; opacity: 0.7; }
+
+  .kgf__results {
+    list-style: none;
+    margin: 1.5rem 0 2rem;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1.25rem;
+    text-align: left;
+  }
+  .kgf__card { display: flex; flex-direction: column; gap: 0.5rem; }
+  .kgf__card-link { display: flex; flex-direction: column; gap: 0.35rem; color: inherit; text-decoration: none; }
+  .kgf__img { width: 100%; height: auto; border-radius: 8px; }
+  .kgf__badge {
+    align-self: flex-start;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    background: #e08a3c;
+    color: #16233f;
+    font-size: 0.75em;
+    font-weight: 600;
+  }
+  .kgf__title { font-weight: 600; }
+  .kgf__price s { opacity: 0.6; margin-right: 0.35rem; }
+  .kgf__matches { margin: 0; font-size: 0.85em; opacity: 0.75; }
+  .kgf__form { margin-top: auto; }
+  .kgf__add { width: 100%; padding: 0.7rem 1rem; }
+  .kgf__restart {
+    background: none;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+{% endstylesheet %}
+
+{% javascript %}
+  if (!customElements.get('kaamos-goal-finder')) {
+    class KaamosGoalFinder extends HTMLElement {
+      connectedCallback() {
+        if (this.initialized) return;
+        this.initialized = true;
+
+        this.selected = new Set();
+        this.maxResults = parseInt(this.dataset.maxResults, 10) || 4;
+        this.chooseStep = this.querySelector('[data-step="choose"]');
+        this.resultsStep = this.querySelector('[data-step="results"]');
+        this.showButton = this.querySelector('[data-action="show"]');
+        this.list = this.querySelector('.kgf__results');
+        this.empty = this.querySelector('.kgf__empty');
+        this.cards = Array.from(this.querySelectorAll('.kgf__card'));
+        this.goalButtons = Array.from(this.querySelectorAll('.kgf__goal'));
+
+        // Map metafield values to the labels shown on the goal buttons.
+        this.labels = {};
+        this.goalButtons.forEach((button) => {
+          this.labels[button.dataset.goal] = button.querySelector('.kgf__goal-label').textContent.trim();
+          button.addEventListener('click', () => this.toggleGoal(button));
+        });
+
+        this.showButton.addEventListener('click', () => this.showResults());
+        this.querySelector('[data-action="restart"]').addEventListener('click', () => this.restart());
+      }
+
+      toggleGoal(button) {
+        const goal = button.dataset.goal;
+        const isSelected = this.selected.has(goal);
+        if (isSelected) {
+          this.selected.delete(goal);
+        } else {
+          this.selected.add(goal);
+        }
+        button.setAttribute('aria-pressed', String(!isSelected));
+        this.showButton.disabled = this.selected.size === 0;
+      }
+
+      showResults() {
+        // Score each product by how many selected goals it matches; keep the collection order as a tiebreaker.
+        const ranked = this.cards
+          .map((card) => {
+            const goals = card.dataset.goals.split('|').map((goal) => goal.trim()).filter(Boolean);
+            const matches = goals.filter((goal) => this.selected.has(goal));
+            return { card, matches, index: Number(card.dataset.index) };
+          })
+          .filter((result) => result.matches.length > 0)
+          .sort((a, b) => b.matches.length - a.matches.length || a.index - b.index)
+          .slice(0, this.maxResults);
+
+        this.cards.forEach((card) => {
+          card.hidden = true;
+          card.querySelector('.kgf__badge').hidden = true;
+        });
+
+        ranked.forEach((result, position) => {
+          const { card, matches } = result;
+          const labels = matches.map((goal) => this.labels[goal] || goal).join(', ');
+          card.querySelector('[data-matches]').textContent = `${this.dataset.matchPrefix} ${labels}`;
+          card.hidden = false;
+          this.list.appendChild(card);
+
+          // Only call something the best match when there is a runner-up and it clearly beats it.
+          if (position === 0 && ranked.length > 1 && matches.length > ranked[1].matches.length) {
+            card.querySelector('.kgf__badge').hidden = false;
+          }
+        });
+
+        this.empty.hidden = ranked.length > 0;
+        this.chooseStep.hidden = true;
+        this.resultsStep.hidden = false;
+        this.resultsStep.querySelector('.kgf__heading').focus();
+      }
+
+      restart() {
+        this.selected.clear();
+        this.goalButtons.forEach((button) => button.setAttribute('aria-pressed', 'false'));
+        this.showButton.disabled = true;
+        this.resultsStep.hidden = true;
+        this.chooseStep.hidden = false;
+        if (this.goalButtons[0]) this.goalButtons[0].focus();
+      }
+    }
+
+    customElements.define('kaamos-goal-finder', KaamosGoalFinder);
+  }
+{% endjavascript %}
+
+{% schema %}
+{
+  "name": "Kaamos: tuotesuosittelija",
+  "class": "kgf-section",
+  "settings": [
+    { "type": "header", "content": "Sisältö" },
+    { "type": "text", "id": "heading", "label": "Otsikko", "default": "Mitä haluat tukea?" },
+    { "type": "text", "id": "subheading", "label": "Alaotsikko", "default": "Valitse yksi tai useampi tavoite, niin ehdotamme sopivia tuotteita." },
+    { "type": "collection", "id": "collection", "label": "Kokoelma, josta suositukset haetaan" },
+    { "type": "range", "id": "max_results", "label": "Suositusten enimmäismäärä", "min": 2, "max": 8, "step": 1, "default": 4 },
+    { "type": "color", "id": "accent", "label": "Korostusväri", "default": "#16233F" },
+    { "type": "header", "content": "Tekstit" },
+    { "type": "text", "id": "button_label", "label": "Painikkeen teksti", "default": "Näytä suositukset" },
+    { "type": "text", "id": "results_heading", "label": "Tulosten otsikko", "default": "Suosituksesi" },
+    { "type": "text", "id": "match_prefix", "label": "Vastaavuuden etuliite", "default": "Sopii tavoitteisiin:" },
+    { "type": "text", "id": "best_match_label", "label": "Parhaan vastaavuuden merkki", "default": "Paras vastaavuus" },
+    { "type": "text", "id": "empty_text", "label": "Teksti, kun tuloksia ei löydy", "default": "Valitsemillesi tavoitteille ei löytynyt tuotteita." },
+    { "type": "text", "id": "add_label", "label": "Ostoskoripainike", "default": "Lisää ostoskoriin" },
+    { "type": "text", "id": "sold_out_label", "label": "Loppuunmyyty-teksti", "default": "Loppuunmyyty" },
+    { "type": "text", "id": "restart_label", "label": "Aloita alusta -linkki", "default": "Aloita alusta" },
+    { "type": "header", "content": "Tekninen" },
+    { "type": "text", "id": "metafield_namespace", "label": "Metakentän nimiavaruus", "default": "custom" },
+    {
+      "type": "text",
+      "id": "metafield_key",
+      "label": "Tavoitteet-metakentän avain",
+      "default": "tavoitteet",
+      "info": "Löytyy kohdasta Asetukset → Mukautetut tiedot → Tuotteet. Kentän tyyppi: lista yksirivistä tekstiä."
+    }
+  ],
+  "blocks": [
+    {
+      "type": "goal",
+      "name": "Tavoite",
+      "settings": [
+        { "type": "text", "id": "label", "label": "Näytettävä nimi", "default": "Uni" },
+        {
+          "type": "text",
+          "id": "value",
+          "label": "Metakentän arvo",
+          "default": "Uni",
+          "info": "Täsmälleen sama arvo kuin tuotteiden Tavoitteet-metakentässä."
+        },
+        {
+          "type": "text",
+          "id": "description",
+          "label": "Kuvaus",
+          "info": "Käytä vain hyväksyttyjen terveysväitteiden mukaisia ilmauksia."
+        }
+      ]
+    }
+  ],
+  "max_blocks": 8,
+  "presets": [
+    {
+      "name": "Kaamos: tuotesuosittelija",
+      "blocks": [
+        { "type": "goal", "settings": { "label": "Immuniteetti", "value": "Immuniteetti", "description": "Immuunijärjestelmän normaaliin toimintaan" } },
+        { "type": "goal", "settings": { "label": "Luusto", "value": "Luusto", "description": "Luuston pysymiseen normaalina" } },
+        { "type": "goal", "settings": { "label": "Energia", "value": "Energia", "description": "Väsymyksen ja uupumuksen vähentämiseen" } },
+        { "type": "goal", "settings": { "label": "Lihastoiminta", "value": "Lihastoiminta", "description": "Lihasten normaaliin toimintaan" } },
+        { "type": "goal", "settings": { "label": "Uni", "value": "Uni", "description": "Nukahtamisajan lyhentämiseen" } }
+      ]
+    }
+  ]
+}
+{% endschema %}
