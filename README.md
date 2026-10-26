@@ -41,6 +41,8 @@ Food supplement marketing in the EU is regulated: health claims must come from t
 
 Known limitation: general references like "Immunity" are only allowed when accompanied by a specific authorised claim that names the nutrient. In this demo, those specific claims are on the product pages, not in the finder itself. For a live store, the next step would be to show each recommended product's authorised claims on its result card, for example from a product metafield.
 
+Multilingual pitfall: auto-translation also translated technical keys (metafield key, goal values), which silently broke the recommendations in English. Diagnosed with debug output in Liquid. Fixed by keeping technical values language-independent.
+
 This is a demo, not legal advice: a real store should have its claims reviewed by the merchant or a food law expert.
 
 ## Tech
