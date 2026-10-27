@@ -18,7 +18,7 @@
   .kaamos-trust { background: var(--kt-bg); color: var(--kt-fg); padding: 2rem 1rem; }
   .kaamos-trust__inner {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: 1fr;
     gap: 1.5rem;
     max-width: 1200px;
     margin: 0 auto;
@@ -26,6 +26,10 @@
   }
   .kaamos-trust__title { font-weight: 600; margin: 0 0 0.25rem; }
   .kaamos-trust__text { margin: 0; opacity: 0.8; font-size: 0.9em; }
+  
+  @media (min-width: 600px) {
+    .kaamos-trust__inner { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  }
 {% endstylesheet %}
 
 {% schema %}
