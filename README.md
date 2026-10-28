@@ -51,5 +51,5 @@ Liquid · Shopify Online Store 2.0 sections and blocks · metafields · vanilla 
 
 ## About
 
-Built by Maxim Anikin, a Shopify developer with a background in wellness marketing, based in Finland.
+Built by Max Anikin, a Shopify developer with a background in wellness marketing, based in Finland.
 Contact: anikintech@gmail.com · Demo store: (https://kaamos-nutrition.myshopify.com/) (password available on request)
